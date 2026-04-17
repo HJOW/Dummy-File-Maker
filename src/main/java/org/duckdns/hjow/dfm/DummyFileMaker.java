@@ -5,18 +5,19 @@ import java.io.FileOutputStream;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import org.duckdns.hjow.commons.util.ClassUtil;
 import org.duckdns.hjow.commons.util.DataUtil;
 
+/** 더미 파일 생성기 메인 클래스 */
 public class DummyFileMaker {
+    /** 진입점 */
     public static void main(String[] args) {
         Map<String, String> argMap = ClassUtil.convertAppParams(args);
         if(argMap == null) argMap = new HashMap<String, String>();
 
         String mode = argMap.get("--mode");
-        if(mode == null) mode = "console";
+        if(mode == null) mode = "gui";
 
         try {
             if(mode.equalsIgnoreCase("gui")) {
@@ -32,7 +33,9 @@ public class DummyFileMaker {
 
     }
 
+    /** true 시 작업 일시 중단 (종료되지 않음) - 쓰레드 내 사이클은 계속 돌아가고, 핵심 처리 코드만 건너뜀 */
     protected volatile boolean flagPause = false;
+    /** true 시 작업이 중단 (사이클 루프가 중단됨) */
     protected volatile boolean flagStop = false;
 
     /** 기본 생성자, 프로그램 실행을 준비 */
@@ -82,7 +85,7 @@ public class DummyFileMaker {
 
         File dest = new File(strDest);
         int pattern = 0;
-        int buffSize = 1024;
+        int buffSize = 8192;
 
         String strPattern = argMap.get("--pattern");
         if(DataUtil.isNotEmpty(strPattern)) {
@@ -95,22 +98,77 @@ public class DummyFileMaker {
         }
 
         System.out.println("DFM Start, size : " + sizes + ", dest : " + dest.getAbsolutePath());
-        process(dest, sizes, pattern);
+        process(dest, sizes, pattern, buffSize);
         System.out.println("END");
     }
+    
+    /** 파일 내용 패턴 - 매 바이트를 0 으로 채우기 (기본값) */
+    public static final int PATTERN_FILL_ZERO = 0;
+    
+    /** 파일 내용 패턴 - 매 바이트를 공백 문자 (띄어쓰기) 로 채우기 (ISO-8859-1 기준) */
+    public static final int PATTERN_FILL_SPACE = 1;
+    
+    /** 파일 내용 패턴 - 매 바이트를 숫자 문자 0 으로 채우기 (ISO-8859-1 기준) */
+    public static final int PATTERN_FILL_ZERO_NUMBER = 10;
+    
+    /** 파일 내용 패턴 - 매 바이트를 순서대로 (0~127) 채우기 */
+    public static final int PATTERN_ROTATE_BYTE = 2;
+    
+    /** 파일 내용 패턴 - 매 바이트를 숫자 문자 순서대로 (0~9) 채우기 (ISO-8859-1 기준) */
+    public static final int PATTERN_ROTATE_NUMBER = 11;
+    
+    /** 파일 내용 패턴 - 매 바이트를 랜덤 값 (0~127) 으로 채우기 */
+    public static final int PATTERN_RANDOM_BYTE = 98;
+    
+    /** 파일 내용 패턴 - 매 바이트를 랜덤 숫자 문자 (0~9) 으로 채우기 (ISO-8859-1 기준) */
+    public static final int PATTERN_RANDOM_NUMBER = 99;
 
-    /** 파일 생성 */
+    /** 
+     * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
+     * 
+     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     */
     public void process(File dest, BigInteger size, int pattern) throws Exception {
         process(dest, size, pattern, 8192);
     }
 
-    /** 파일 생성 */
+    /** 
+     * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
+     * 
+     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
+     */
     public void process(File dest, BigInteger size, int pattern, int bufferSize) throws Exception {
-        process(dest, size, pattern, bufferSize, null);
+        process(dest, size, pattern, bufferSize, 20L);
+    }
+    
+    /** 
+     * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
+     * 
+     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
+     * @param threadGapTimeMillis : 사이클 간 Sleep 주기, 짧을 수록 속도가 빠르나 시스템이 불안정해질 수 있음. 밀리초 단위. 최소 20 이상을 넣어야 함.
+     */
+    public void process(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
+        process(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
     }
 
-    /** 파일 생성 */
-    public void process(File dest, BigInteger size, int pattern, int bufferSize, OnWriteCycle oneCycleEventHandler) throws Exception {
+    /** 
+     * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
+     * 
+     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
+     * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
+     */
+    public void process(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
         flagPause = false;
         flagStop = false;
 
@@ -132,8 +190,8 @@ public class DummyFileMaker {
             rotate = 0;
             out1 = new FileOutputStream(dest);
 
-            byte zeros  = new String("0").getBytes("UTF-8")[0];
-            byte spaces = new String(" ").getBytes("UTF-8")[0];
+            byte zeros  = new String("0").getBytes("ISO-8859-1")[0];
+            byte spaces = new String(" ").getBytes("ISO-8859-1")[0];
 
             while(lefts.compareTo(BigInteger.ZERO) > 0) {
                 if(flagStop) { log("Stop requested."); break; }
@@ -141,21 +199,27 @@ public class DummyFileMaker {
                     // 버퍼 준비
                     for(idx=0; idx<bufferSize; idx++) {
                         switch(pattern) {
-                            case 1:
+                            case PATTERN_FILL_SPACE:
                                 buffer[idx] = spaces;
-                            case 2:
+                                break;
+                            case PATTERN_ROTATE_BYTE:
                                 buffer[idx] = (byte) rotate;
                                 rotate++;
                                 if(rotate >= (int) Byte.MAX_VALUE) rotate = 0;
-                            case 11:
-                                buffer[idx] = String.valueOf(rotate).getBytes("UTF-8")[0];
+                                break;
+                            case PATTERN_ROTATE_NUMBER:
+                                buffer[idx] = String.valueOf(rotate).getBytes("ISO-8859-1")[0];
                                 rotate++;
                                 if(rotate >= 10) rotate = 0;
-                            case 98:
+                                break;
+                            case PATTERN_RANDOM_BYTE:
                                 buffer[idx] = (byte) (Math.random() * ((int) Byte.MAX_VALUE));
                                 break;
-                            case 99:
-                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes("UTF-8")[0];
+                            case PATTERN_RANDOM_NUMBER:
+                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes("ISO-8859-1")[0];
+                                break;
+                            case PATTERN_FILL_ZERO_NUMBER:
+                                buffer[idx] = zeros;
                                 break;
                             default:
                                 buffer[idx] = (byte) 0;
@@ -180,11 +244,11 @@ public class DummyFileMaker {
                 }
 
                 // 이벤트 지정 시 호출
-                if(oneCycleEventHandler != null) oneCycleEventHandler.onCycle(cycle, written, size);
+                if(oneCycleEventHandler != null) oneCycleEventHandler.onCycle(dest, cycle, written, size);
 
                 // 사이클 증가
                 cycle++;
-                if(cycle % 1000 == 0) Thread.sleep(20L);
+                if(cycle % 1000 == 0) Thread.sleep(threadGapTimeMillis);
                 if(cycle >= Integer.MAX_VALUE - 1) cycle = 0;
             }
             out1.close();

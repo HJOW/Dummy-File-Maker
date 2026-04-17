@@ -1,11 +1,7 @@
 package org.duckdns.hjow.dfm;
 
-import org.duckdns.hjow.commons.ui.extend.HComboBox;
-import org.duckdns.hjow.commons.util.DataUtil;
-import org.duckdns.hjow.commons.util.GUIUtil;
-
-import javax.swing.*;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -13,6 +9,26 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.Vector;
 
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+
+import org.duckdns.hjow.commons.ui.extend.HComboBox;
+import org.duckdns.hjow.commons.util.DataUtil;
+import org.duckdns.hjow.commons.util.GUIUtil;
+
+/** GUI 기반 DFM 프로그램 구현체 */
 public class GUIDummyFileMaker extends DummyFileMaker {
     private JFrame frame;
     private JFileChooser chooser;
@@ -21,15 +37,18 @@ public class GUIDummyFileMaker extends DummyFileMaker {
     protected JTextField tfDest;
     protected JSpinner spSize;
     protected HComboBox cbxSizeUnit, cbxPattern;
-    protected JButton btnRun;
+    protected JButton btnRun, btnPause, btnStop;
 
     protected JTextArea taArea;
     protected JTextField tfStat;
 
     private String strErrorMessage = "";
     private BigInteger progressDivides = BigInteger.ONE;
-    private int progressTotal, progressWritten;
+    
+    protected Vector<ComboBoxItem> vSizeUnits = new Vector<ComboBoxItem>();
+    protected Vector<ComboBoxItem> vPattern   = new Vector<ComboBoxItem>();
 
+    /** 기본 생성자, UI 초기화를 이 때 진행 */
     public GUIDummyFileMaker() {
         try {
             UIManager.LookAndFeelInfo[] looAndFeels = UIManager.getInstalledLookAndFeels();
@@ -42,7 +61,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
 
 
         frame = new JFrame();
-        frame.setSize(500, 300);
+        frame.setSize(430, 300);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
         frame.setTitle("Dummy File Maker");
@@ -57,7 +76,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
 
         JPanel pnUp1, pnCenter1;
         JPanel pnUp21, pnUp22, pnUp23;
-        JPanel pnUp31;
+        JPanel pnUp31, pnUp32;
 
         pnUp1 = new JPanel();
         pnUp1.setLayout(new BorderLayout());
@@ -77,7 +96,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         JButton btn;
 
         lb = new JLabel("Dest");
-        tfDest = new JTextField(35);
+        tfDest = new JTextField(28);
         btn = new JButton("...");
         pnUp21.add(lb);
         pnUp21.add(tfDest);
@@ -99,7 +118,6 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         pnUp22.add(lb);
         pnUp22.add(spSize);
 
-        Vector<ComboBoxItem> vSizeUnits = new Vector<ComboBoxItem>();
         vSizeUnits.add(new ComboBoxItem("", "bytes"));
         vSizeUnits.add(new ComboBoxItem("K", "KiB"));
         vSizeUnits.add(new ComboBoxItem("M", "MiB"));
@@ -108,7 +126,6 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         cbxSizeUnit = new HComboBox(vSizeUnits);
         pnUp22.add(cbxSizeUnit);
 
-        Vector<ComboBoxItem> vPattern = new Vector<ComboBoxItem>();
         vPattern.add(new ComboBoxItem("0", "Fill 0"));
         vPattern.add(new ComboBoxItem("1", "Fill Space"));
         vPattern.add(new ComboBoxItem("2", "Rotate Bytes"));
@@ -118,23 +135,50 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         cbxPattern = new HComboBox(vPattern);
         pnUp22.add(cbxPattern);
 
-        btnRun = new JButton("Make");
+        progBar = new JProgressBar();
+        pnUp23.add(progBar, BorderLayout.SOUTH);
+        
+        pnUp31 = new JPanel();
+        pnUp31.setLayout(new FlowLayout(FlowLayout.RIGHT));
+        pnUp23.add(pnUp31, BorderLayout.NORTH);
+        
+        btnRun = new JButton("Start");
         btnRun.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) { start(); }
         });
-        pnUp22.add(btnRun);
+        pnUp31.add(btnRun);
+        
+        btnPause = new JButton("||");
+        btnPause.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                flagPause = (! flagPause);
+                if(flagPause) btnPause.setText("▶");
+                else          btnPause.setText("||");
+            }
+        });
+        btnPause.setVisible(false);
+        pnUp31.add(btnPause);
+        
+        btnStop = new JButton("■");
+        btnStop.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                flagStop = true;
+                btnStop.setVisible(false);
+            }
+        });
+        btnStop.setVisible(false);
+        pnUp31.add(btnStop);
 
-        progBar = new JProgressBar();
-        pnUp23.add(progBar, BorderLayout.SOUTH);
-
-        pnUp31 = new JPanel();
-        pnUp31.setLayout(new BorderLayout());
-        pnUp23.add(pnUp31, BorderLayout.CENTER);
+        pnUp32 = new JPanel();
+        pnUp32.setLayout(new BorderLayout());
+        pnUp23.add(pnUp32, BorderLayout.CENTER);
 
         tfStat = new JTextField();
         tfStat.setEditable(false);
-        pnUp31.add(tfStat, BorderLayout.CENTER);
+        pnUp32.add(tfStat, BorderLayout.CENTER);
 
         pnCenter1 = new JPanel();
         pnCenter1.setLayout(new BorderLayout());
@@ -158,7 +202,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         taArea.setCaretPosition(taArea.getDocument().getLength());
     }
 
-    /** 작업 수행 (프레임 띄우고 중단) */
+    /** 프로그램 실행 시 초기화 작업 후 이 메소드가 호출됨. UI 프레임을 띄우고 이 메소드 역할은 종료됨. */
     public void run(Map<String, String> argMap) throws Exception {
         frame.setVisible(true);
 
@@ -172,6 +216,17 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             }
 
             spSize.setValue(new Integer(strSize));
+            
+            if(DataUtil.isEmpty(strSizeUnit)) {
+                cbxSizeUnit.setSelectedIndex(0);
+            } else {
+                for(ComboBoxItem item : vSizeUnits) {
+                    if(strSizeUnit.equals(item.getKey())) {
+                        cbxSizeUnit.setSelectedItem(item);
+                        break;
+                    }
+                }
+            }
         }
 
         String strDest = argMap.get("--dest");
@@ -183,6 +238,9 @@ public class GUIDummyFileMaker extends DummyFileMaker {
     /** 작업 시작 */
     protected void start() {
         btnRun.setEnabled(false);
+        btnStop.setVisible(true);
+        btnPause.setVisible(true);
+        btnPause.setText("||");
         progBar.setIndeterminate(true);
         taArea.setText("");
         tfStat.setText("Job started !");
@@ -196,7 +254,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         }).start();
     }
 
-    /** 쓰레드 내 작업 */
+    /** 쓰레드 내 작업 정의 */
     protected void onThread() {
         strErrorMessage = "";
         try {
@@ -240,10 +298,10 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             strSize = null;
 
             // 작업 호출
-            process(dest, totals, Integer.parseInt(strPattern), buffSize, new OnWriteCycle() {
+            process(dest, totals, Integer.parseInt(strPattern), buffSize, 20L, new OnWriteCycle() {
                 @Override
-                public void onCycle(int cycle, BigInteger written, BigInteger totals) {
-                    onOneCycleProcessing(cycle, written, totals);
+                public void onCycle(File f, int cycle, BigInteger written, BigInteger totals) {
+                    onOneCycleProcessing(f, cycle, written, totals);
                 }
             });
         } catch(RuntimeException e) {
@@ -257,15 +315,24 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             alert(strErrorMessage);
             strErrorMessage = "";
         }
-
-        progBar.setValue(0);
-        btnRun.setEnabled(true);
-        tfStat.setText("Job finished !");
+        
         log("Job finished !");
+        tfStat.setText("Job finished !");
+        progBar.setValue(0);
+        
+        SwingUtilities.invokeLater(new Runnable() {
+            
+            @Override
+            public void run() {
+                btnStop.setVisible(false);
+                btnPause.setVisible(false);
+                btnRun.setEnabled(true);
+            }
+        });
     }
 
     /** 버퍼 하나 작업 당 1회 호출 */
-    protected void onOneCycleProcessing(int cycle, BigInteger written, BigInteger totals) {
+    protected void onOneCycleProcessing(File dest, int cycle, BigInteger written, BigInteger totals) {
         if(cycle % 10 == 0) { // 매 회 갱신하면 성능이 떨어질 우려가 있음
             progBar.setMaximum(totals.divide(progressDivides).intValue());
             progBar.setValue(written.divide(progressDivides).intValue());
