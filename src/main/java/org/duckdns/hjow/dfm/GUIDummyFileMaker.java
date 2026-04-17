@@ -63,7 +63,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         frame.setSize(430, 300);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
-        frame.setTitle("Dummy File Maker");
+        frame.setTitle(DFMStringTableManager.t("Dummy File Maker (DFM)"));
 
         centerWindow(frame);
 
@@ -94,8 +94,8 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         JLabel lb;
         JButton btn;
 
-        lb = new JLabel("Dest");
-        tfDest = new JTextField(28);
+        lb = new JLabel(DFMStringTableManager.t("Destination"));
+        tfDest = new JTextField(27);
         btn = new JButton("...");
         pnUp21.add(lb);
         pnUp21.add(tfDest);
@@ -111,7 +111,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             }
         });
 
-        lb = new JLabel("Size");
+        lb = new JLabel(DFMStringTableManager.t("Size"));
         SpinnerNumberModel md = new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1);
         spSize = new JSpinner(md);
         pnUp22.add(lb);
@@ -125,12 +125,12 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         cbxSizeUnit = new DFMComboBox(vSizeUnits);
         pnUp22.add(cbxSizeUnit);
 
-        vPattern.add(new ComboBoxItem("0", "Fill 0"));
-        vPattern.add(new ComboBoxItem("1", "Fill Space"));
-        vPattern.add(new ComboBoxItem("2", "Rotate Bytes"));
-        vPattern.add(new ComboBoxItem("11", "Rotate 0~9"));
-        vPattern.add(new ComboBoxItem("98", "Random Bytes"));
-        vPattern.add(new ComboBoxItem("99", "Random 0~9"));
+        vPattern.add(new ComboBoxItem("0" , DFMStringTableManager.t("Fill 0")));
+        vPattern.add(new ComboBoxItem("1" , DFMStringTableManager.t("Fill Space")));
+        vPattern.add(new ComboBoxItem("2" , DFMStringTableManager.t("Rotate Bytes")));
+        vPattern.add(new ComboBoxItem("11", DFMStringTableManager.t("Rotate 0~9")));
+        vPattern.add(new ComboBoxItem("98", DFMStringTableManager.t("Random Bytes")));
+        vPattern.add(new ComboBoxItem("99", DFMStringTableManager.t("Random 0~9")));
         cbxPattern = new DFMComboBox(vPattern);
         pnUp22.add(cbxPattern);
 
@@ -141,7 +141,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         pnUp31.setLayout(new FlowLayout(FlowLayout.RIGHT));
         pnUp23.add(pnUp31, BorderLayout.NORTH);
         
-        btnRun = new JButton("Start");
+        btnRun = new JButton(DFMStringTableManager.t("Start"));
         btnRun.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) { start(); }
@@ -190,7 +190,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
 
     /** 확인 창으로 메시지 띄우기 */
     public void alert(String msg) {
-        JOptionPane.showMessageDialog(frame, msg, "Message", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(frame, msg, DFMStringTableManager.t("Message"), JOptionPane.INFORMATION_MESSAGE);
     }
 
     /** 로그 출력 */
@@ -242,8 +242,9 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         btnPause.setText("||");
         progBar.setIndeterminate(true);
         taArea.setText("");
-        tfStat.setText("Job started !");
-        log("Job started !");
+        tfStat.setText(DFMStringTableManager.t("Job started !"));
+        log(DFMStringTableManager.t("Job started !"));
+        frame.setTitle(DFMStringTableManager.t(new File(tfDest.getText()).getName() + " - Dummy File Maker (DFM)"));
 
         new Thread(new Runnable() {
             @Override
@@ -260,20 +261,20 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             // 입력값 및 선택값 꺼내기, 유효성 검사
             String strSize = String.valueOf(spSize.getValue());
             if(DFMUtil.isEmpty(strSize)) {
-                throw new RuntimeException("Please input the file sizes !");
+                throw new RuntimeException(DFMStringTableManager.t("Please input the file sizes !"));
             }
 
             ComboBoxItem itemSizeUnit = (ComboBoxItem) cbxSizeUnit.getSelectedItem();
             ComboBoxItem itemPattern  = (ComboBoxItem) cbxPattern.getSelectedItem();
 
-            if(itemSizeUnit == null) throw new RuntimeException("Please select the size unit !");
-            if(itemPattern == null) throw new RuntimeException("Please select the pattern !");
+            if(itemSizeUnit == null) throw new RuntimeException(DFMStringTableManager.t("Please select the size unit !"));
+            if(itemPattern == null) throw new RuntimeException(DFMStringTableManager.t("Please select the pattern !"));
 
             strSize = strSize.trim() + itemSizeUnit.getKey();
             String strPattern = itemPattern.getKey();
 
             String strDest = tfDest.getText().trim();
-            if(DFMUtil.isEmpty(strDest)) throw new RuntimeException("Please select or input where to save !");
+            if(DFMUtil.isEmpty(strDest)) throw new RuntimeException(DFMStringTableManager.t("Please select or input where to save !"));
 
             // 진행바 상태 변경
             progBar.setIndeterminate(false);
@@ -306,7 +307,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         } catch(RuntimeException e) {
             strErrorMessage = e.getMessage();
         } catch(Throwable ex) {
-            strErrorMessage = "(" + ex.getClass().getSimpleName() + ") " + ex.getMessage();
+            strErrorMessage = DFMStringTableManager.t("Error on DFM") + " (" + ex.getClass().getSimpleName() + ") " + ex.getMessage();
         }
 
         if(DFMUtil.isNotEmpty(strErrorMessage)) {
@@ -315,17 +316,18 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             strErrorMessage = "";
         }
         
-        log("Job finished !");
-        tfStat.setText("Job finished !");
+        log(DFMStringTableManager.t("Job finished !"));
+        tfStat.setText(DFMStringTableManager.t("Job finished !"));
+        progBar.setIndeterminate(false);
         progBar.setValue(0);
         
         SwingUtilities.invokeLater(new Runnable() {
-            
             @Override
             public void run() {
                 btnStop.setVisible(false);
                 btnPause.setVisible(false);
                 btnRun.setEnabled(true);
+                frame.setTitle(DFMStringTableManager.t("Dummy File Maker (DFM)"));
             }
         });
     }
@@ -335,7 +337,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         if(cycle % 10 == 0) { // 매 회 갱신하면 성능이 떨어질 우려가 있음
             progBar.setMaximum(totals.divide(progressDivides).intValue());
             progBar.setValue(written.divide(progressDivides).intValue());
-            tfStat.setText("Progressing ... " + written + " / " + totals);
+            tfStat.setText(DFMStringTableManager.t("Processing") + " ... " + written + " / " + totals);
         }
     }
     

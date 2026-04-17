@@ -23,9 +23,9 @@ public class DummyFileMaker {
                 new DummyFileMaker().run(argMap);
             }
         } catch(RuntimeException ex) {
-            System.out.println("Error on dfm - " + ex.getMessage());
+            System.out.println(DFMStringTableManager.t("Error on DFM") + " - " + ex.getMessage());
         } catch(Throwable ex) {
-            System.out.println("Error on dfm - (" + ex.getClass().getSimpleName() + ") " + ex.getMessage());
+            System.out.println(DFMStringTableManager.t("Error on DFM") + " - (" + ex.getClass().getSimpleName() + ") " + ex.getMessage());
         }
 
     }
@@ -34,6 +34,8 @@ public class DummyFileMaker {
     protected volatile boolean flagPause = false;
     /** true 시 작업이 중단 (사이클 루프가 중단됨) */
     protected volatile boolean flagStop = false;
+    /** 문자 관련 패턴을 선택한 경우 이 캐릭터셋을 따름 */
+    protected String defaultCharset = "ISO-8859-1";
 
     /** 기본 생성자, 프로그램 실행을 준비 */
     public DummyFileMaker() { }
@@ -45,7 +47,7 @@ public class DummyFileMaker {
     protected BigInteger detectRequestedSizes(String strSize) {
         BigInteger sizes = BigInteger.ZERO;
 
-        if(DFMUtil.isEmpty(strSize)) throw new RuntimeException("Please input '--size' arguments !");
+        if(DFMUtil.isEmpty(strSize)) throw new RuntimeException(DFMStringTableManager.t("Please input '--size' arguments !"));
         strSize = strSize.replace(",", "").replace(" ", "").trim();
 
         String strSizeUnit = "";
@@ -78,7 +80,7 @@ public class DummyFileMaker {
         BigInteger sizes = detectRequestedSizes(strSize);
 
         String strDest = argMap.get("--dest");
-        if(DFMUtil.isEmpty(strDest)) throw new RuntimeException("Please input '--dest' arguments !");
+        if(DFMUtil.isEmpty(strDest)) throw new RuntimeException(DFMStringTableManager.t("Please input '--dest' arguments !"));
 
         File dest = new File(strDest);
         int pattern = 0;
@@ -187,11 +189,11 @@ public class DummyFileMaker {
             rotate = 0;
             out1 = new FileOutputStream(dest);
 
-            byte zeros  = new String("0").getBytes("ISO-8859-1")[0];
-            byte spaces = new String(" ").getBytes("ISO-8859-1")[0];
+            byte zeros  = new String("0").getBytes(defaultCharset)[0];
+            byte spaces = new String(" ").getBytes(defaultCharset)[0];
 
             while(lefts.compareTo(BigInteger.ZERO) > 0) {
-                if(flagStop) { log("Stop requested."); break; }
+                if(flagStop) { log(DFMStringTableManager.t("Stop requested.")); break; }
                 if(! flagPause) {
                     // 버퍼 준비
                     for(idx=0; idx<bufferSize; idx++) {
@@ -205,7 +207,7 @@ public class DummyFileMaker {
                                 if(rotate >= (int) Byte.MAX_VALUE) rotate = 0;
                                 break;
                             case PATTERN_ROTATE_NUMBER:
-                                buffer[idx] = String.valueOf(rotate).getBytes("ISO-8859-1")[0];
+                                buffer[idx] = String.valueOf(rotate).getBytes(defaultCharset)[0];
                                 rotate++;
                                 if(rotate >= 10) rotate = 0;
                                 break;
@@ -213,7 +215,7 @@ public class DummyFileMaker {
                                 buffer[idx] = (byte) (Math.random() * ((int) Byte.MAX_VALUE));
                                 break;
                             case PATTERN_RANDOM_NUMBER:
-                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes("ISO-8859-1")[0];
+                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes(defaultCharset)[0];
                                 break;
                             case PATTERN_FILL_ZERO_NUMBER:
                                 buffer[idx] = zeros;
