@@ -22,6 +22,8 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.duckdns.hjow.dfm.stringtable.DFMStringTableManager;
 import org.duckdns.hjow.dfm.ui.GUIDummyFileMaker;
@@ -147,7 +149,7 @@ public class DummyFileMaker {
     /** 
      * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
      * 
-     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param dest : 파일이 생성될 경로 및 파일명, 단 확장자가 zip 인 경우 생성된 파일이 압축됨.
      * @param size : 생성할 파일의 크기 (byte 단위)
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      */
@@ -158,7 +160,7 @@ public class DummyFileMaker {
     /** 
      * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
      * 
-     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param dest : 파일이 생성될 경로 및 파일명, 단 확장자가 zip 인 경우 생성된 파일이 압축됨.
      * @param size : 생성할 파일의 크기 (byte 단위)
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
@@ -170,7 +172,7 @@ public class DummyFileMaker {
     /** 
      * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
      * 
-     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param dest : 파일이 생성될 경로 및 파일명, 단 확장자가 zip 인 경우 생성된 파일이 압축됨.
      * @param size : 생성할 파일의 크기 (byte 단위)
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
@@ -179,17 +181,32 @@ public class DummyFileMaker {
     public void create(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
         create(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
     }
-
+    
     /** 
      * 파일 생성 (이 프로그램의 본 목적 핵심 메소드)
      * 
-     * @param dest : 파일이 생성될 경로 및 파일명
+     * @param dest : 파일이 생성될 경로 및 파일명, 단 확장자가 zip 인 경우 생성된 파일이 압축됨.
      * @param size : 생성할 파일의 크기 (byte 단위)
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
      */
-    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
+    public void create(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis, OnWriteCycle oneCycleEventHandler) throws Exception {
+        String ext = DFMUtil.getFileExt(dest);
+        if("zip".equals(ext)) createZipped(dest, size, pattern, bufferSize, threadGapTimeMillis, oneCycleEventHandler);
+        else                  createPlain(dest, size, pattern, bufferSize, threadGapTimeMillis, oneCycleEventHandler);
+    }
+
+    /** 
+     * 일반적인 파일 생성 (이 메소드에서 확장자 검사 안 함)
+     * 
+     * @param dest : 파일이 생성될 경로 및 파일명, 확장자에 관계없이 해당 이름으로 생성
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
+     * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
+     */
+    protected void createPlain(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
         flagPause = false;
         flagStop = false;
 
@@ -289,6 +306,137 @@ public class DummyFileMaker {
             exc = ex;
         } finally {
             DFMUtil.closeAll(out2, out1);
+            out2 = null;
+            out1 = null;
+        }
+
+        if(exc != null) throw new RuntimeException("(" + exc.getClass().getSimpleName() + ") " + exc.getMessage(), exc);
+    }
+    
+    /** 
+     * 압축된 파일 생성 (이 메소드에서 확장자 검사 안 함)
+     * 
+     * @param dest : 압축 파일이 생성될 경로 및 압축 파일명, 확장자에 관계없이 해당 이름으로 생성되며, 압축 파일 내에 단독 파일이 탑재됨.
+     * @param size : 생성할 파일의 크기 (byte 단위)
+     * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
+     * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
+     * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
+     */
+    protected void createZipped(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
+        flagPause = false;
+        flagStop = false;
+
+        FileOutputStream  out1 = null;
+        OutputStream      out2 = null;
+        ZipOutputStream   out3 = null;
+        byte[] buffer = new byte[bufferSize];
+        int idx;
+        Throwable exc = null;
+
+        for(idx=0; idx<bufferSize; idx++) {
+            buffer[idx] = (byte) 0;
+        }
+
+        try {
+            BigInteger written = BigInteger.ZERO;
+            BigInteger lefts   = size;
+            int cycle, nowWriteSize, rotate;
+
+            cycle = 0;
+            rotate = 0;
+            out1 = new FileOutputStream(dest);
+            
+            if(useDynamicBuffer) out2 = new BufferedOutputStream(out1);
+            else                 out2 = out1;
+            
+            String fileName = dest.getName();
+            String nameWithoutExt = fileName.substring(0, (int) (fileName.length() - DFMUtil.getFileExt(fileName).length() - 1));
+            ZipEntry entry = new ZipEntry(nameWithoutExt);
+            
+            out3 = new ZipOutputStream(out2);
+            out3.putNextEntry(entry);
+            
+            byte zeros  = new String("0").getBytes(charset)[0];
+            byte spaces = new String(" ").getBytes(charset)[0];
+
+            while(lefts.compareTo(BigInteger.ZERO) > 0) {
+                if(flagStop) { log(DFMStringTableManager.t("Stop requested.")); break; }
+                if(! flagPause) {
+                    // 버퍼 준비
+                    for(idx=0; idx<bufferSize; idx++) {
+                        switch(pattern) {
+                            case PATTERN_FILL_SPACE:
+                                buffer[idx] = spaces;
+                                break;
+                            case PATTERN_ROTATE_BYTE:
+                                buffer[idx] = (byte) rotate;
+                                rotate++;
+                                if(rotate >= (int) Byte.MAX_VALUE) rotate = 0;
+                                break;
+                            case PATTERN_ROTATE_NUMBER:
+                                buffer[idx] = String.valueOf(rotate).getBytes(charset)[0];
+                                rotate++;
+                                if(rotate >= 10) rotate = 0;
+                                break;
+                            case PATTERN_RANDOM_BYTE:
+                                buffer[idx] = (byte) (Math.random() * ((int) Byte.MAX_VALUE));
+                                break;
+                            case PATTERN_RANDOM_NUMBER:
+                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes(charset)[0];
+                                break;
+                            case PATTERN_FILL_ZERO_NUMBER:
+                                buffer[idx] = zeros;
+                                break;
+                            default:
+                                buffer[idx] = (byte) 0;
+                        }
+                    }
+
+                    // 남은 양 체크
+                    lefts = size.subtract(written);
+                    // 지금 차례에 써야 하는 바이트 수 계산
+                    if(lefts.compareTo(new BigInteger(bufferSize + "")) >= 0) {
+                        nowWriteSize = bufferSize;
+                    } else {
+                        nowWriteSize = bufferSize - lefts.intValue();
+                    }
+
+                    // 쓰기
+                    out3.write(buffer, 0, nowWriteSize);
+
+                    // 쓴 용량 갱신
+                    written = written.add(new BigInteger(nowWriteSize + ""));
+                    lefts = size.subtract(written);
+                }
+
+                // 이벤트 지정 시 호출
+                if(oneCycleEventHandler != null) oneCycleEventHandler.onCycle(dest, cycle, written, size);
+
+                // 사이클 증가
+                cycle++;
+                if(cycle % 1000 == 0) Thread.sleep(threadGapTimeMillis);
+                if(cycle >= Integer.MAX_VALUE - 1) cycle = 0;
+            }
+            
+            if(out3 != null) {
+                out3.close();
+                if(out3 == out2) out2 = null;
+            }
+            out3 = null;
+            
+            if(out2 != null) {
+                out2.close();
+                if(out2 == out1) out1 = null;
+            }
+            out2 = null;
+            
+            if(out1 != null) out1.close();
+            out1 = null;
+        } catch(Throwable ex) {
+            exc = ex;
+        } finally {
+            DFMUtil.closeAll(out3, out2, out1);
+            out3 = null;
             out2 = null;
             out1 = null;
         }

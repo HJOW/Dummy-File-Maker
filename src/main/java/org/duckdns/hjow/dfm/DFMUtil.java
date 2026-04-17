@@ -16,10 +16,12 @@ limitations under the License.
  */
 
 import java.io.Closeable;
+import java.io.File;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
 
 /** DFM 동작에 필요한 유틸리티 클래스, 여러 static 메소드 제공, HJOW-Libs 프로젝트 참조 */
 public class DFMUtil {
@@ -174,5 +176,24 @@ public class DFMUtil {
                 
             } catch(Throwable t) { System.out.println("Warn ! Exception occured when closing " + c.getClass().getName() + " - ( " + t.getClass().getName() + ") " + t.getMessage()); }
         }
+    }
+    
+    /** 파일의 확장자 감지 (파일명을 입력), 확장자가 없는 파일의 경우 빈 문자열 반환, 그 외의 경우 소문자로 반환 */
+    public static String getFileExt(String name) {
+        name = name.toLowerCase().trim();
+        String ext = "";
+        
+        StringTokenizer dotTokenizer = new StringTokenizer(name, ".");
+        if(dotTokenizer.countTokens() >= 2) {
+            while(dotTokenizer.hasMoreTokens()) { ext = dotTokenizer.nextToken(); } // 마지막 토큰 선택
+            ext = ext.trim();
+        }
+        
+        return ext;
+    }
+
+    /** 파일의 확장자 감지 (파일 이름으로만 확인), 확장자가 없는 파일의 경우 빈 문자열 반환, 그 외의 경우 소문자로 반환 */
+    public static String getFileExt(File file) {
+        return getFileExt(file.getName());
     }
 }
