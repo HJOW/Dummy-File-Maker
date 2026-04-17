@@ -12,11 +12,13 @@
         </license>
     </licenses>
     <dependencies>
+        <!--
         <dependency>
             <groupId>org.duckdns.hjow</groupId>
             <artifactId>hjow-commons</artifactId>
             <version>0.0.39</version>
         </dependency>
+        -->
     </dependencies>
     <build>
         <defaultGoal>install</defaultGoal>

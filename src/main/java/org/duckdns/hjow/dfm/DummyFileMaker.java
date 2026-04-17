@@ -6,14 +6,11 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.duckdns.hjow.commons.util.ClassUtil;
-import org.duckdns.hjow.commons.util.DataUtil;
-
 /** 더미 파일 생성기 메인 클래스 */
 public class DummyFileMaker {
     /** 진입점 */
     public static void main(String[] args) {
-        Map<String, String> argMap = ClassUtil.convertAppParams(args);
+        Map<String, String> argMap = DFMUtil.convertAppParams(args);
         if(argMap == null) argMap = new HashMap<String, String>();
 
         String mode = argMap.get("--mode");
@@ -48,7 +45,7 @@ public class DummyFileMaker {
     protected BigInteger detectRequestedSizes(String strSize) {
         BigInteger sizes = BigInteger.ZERO;
 
-        if(DataUtil.isEmpty(strSize)) throw new RuntimeException("Please input '--size' arguments !");
+        if(DFMUtil.isEmpty(strSize)) throw new RuntimeException("Please input '--size' arguments !");
         strSize = strSize.replace(",", "").replace(" ", "").trim();
 
         String strSizeUnit = "";
@@ -81,24 +78,24 @@ public class DummyFileMaker {
         BigInteger sizes = detectRequestedSizes(strSize);
 
         String strDest = argMap.get("--dest");
-        if(DataUtil.isEmpty(strDest)) throw new RuntimeException("Please input '--dest' arguments !");
+        if(DFMUtil.isEmpty(strDest)) throw new RuntimeException("Please input '--dest' arguments !");
 
         File dest = new File(strDest);
         int pattern = 0;
         int buffSize = 8192;
 
         String strPattern = argMap.get("--pattern");
-        if(DataUtil.isNotEmpty(strPattern)) {
+        if(DFMUtil.isNotEmpty(strPattern)) {
             pattern = Integer.parseInt(strPattern.trim());
         }
 
         String strBufferSize = argMap.get("--buffersize");
-        if(DataUtil.isNotEmpty(strBufferSize)) {
+        if(DFMUtil.isNotEmpty(strBufferSize)) {
             buffSize = Integer.parseInt(strBufferSize.replace(",", "").trim());
         }
 
         System.out.println("DFM Start, size : " + sizes + ", dest : " + dest.getAbsolutePath());
-        process(dest, sizes, pattern, buffSize);
+        create(dest, sizes, pattern, buffSize);
         System.out.println("END");
     }
     
@@ -130,8 +127,8 @@ public class DummyFileMaker {
      * @param size : 생성할 파일의 크기 (byte 단위)
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      */
-    public void process(File dest, BigInteger size, int pattern) throws Exception {
-        process(dest, size, pattern, 8192);
+    public void create(File dest, BigInteger size, int pattern) throws Exception {
+        create(dest, size, pattern, 8192);
     }
 
     /** 
@@ -142,8 +139,8 @@ public class DummyFileMaker {
      * @param pattern : 파일 내용 패턴 코드 (이 클래스에 정의된 상수)
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      */
-    public void process(File dest, BigInteger size, int pattern, int bufferSize) throws Exception {
-        process(dest, size, pattern, bufferSize, 20L);
+    public void create(File dest, BigInteger size, int pattern, int bufferSize) throws Exception {
+        create(dest, size, pattern, bufferSize, 20L);
     }
     
     /** 
@@ -155,8 +152,8 @@ public class DummyFileMaker {
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      * @param threadGapTimeMillis : 사이클 간 Sleep 주기, 짧을 수록 속도가 빠르나 시스템이 불안정해질 수 있음. 밀리초 단위. 최소 20 이상을 넣어야 함.
      */
-    public void process(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
-        process(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
+    public void create(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
+        create(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
     }
 
     /** 
@@ -168,7 +165,7 @@ public class DummyFileMaker {
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
      */
-    public void process(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
+    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
         flagPause = false;
         flagStop = false;
 
@@ -256,7 +253,7 @@ public class DummyFileMaker {
         } catch(Throwable ex) {
             exc = ex;
         } finally {
-            ClassUtil.closeAll(out1);
+            DFMUtil.closeAll(out1);
         }
 
         if(exc != null) throw new RuntimeException("(" + exc.getClass().getSimpleName() + ") " + exc.getMessage(), exc);

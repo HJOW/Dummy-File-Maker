@@ -1,7 +1,10 @@
 package org.duckdns.hjow.dfm;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -24,10 +27,6 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
-import org.duckdns.hjow.commons.ui.extend.HComboBox;
-import org.duckdns.hjow.commons.util.DataUtil;
-import org.duckdns.hjow.commons.util.GUIUtil;
-
 /** GUI 기반 DFM 프로그램 구현체 */
 public class GUIDummyFileMaker extends DummyFileMaker {
     private JFrame frame;
@@ -36,7 +35,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
     protected JProgressBar progBar;
     protected JTextField tfDest;
     protected JSpinner spSize;
-    protected HComboBox cbxSizeUnit, cbxPattern;
+    protected DFMComboBox cbxSizeUnit, cbxPattern;
     protected JButton btnRun, btnPause, btnStop;
 
     protected JTextArea taArea;
@@ -66,7 +65,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         frame.setLayout(new BorderLayout());
         frame.setTitle("Dummy File Maker");
 
-        GUIUtil.centerWindow(frame);
+        centerWindow(frame);
 
         chooser = new JFileChooser();
 
@@ -123,7 +122,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         vSizeUnits.add(new ComboBoxItem("M", "MiB"));
         vSizeUnits.add(new ComboBoxItem("G", "GiB"));
         vSizeUnits.add(new ComboBoxItem("T", "TiB"));
-        cbxSizeUnit = new HComboBox(vSizeUnits);
+        cbxSizeUnit = new DFMComboBox(vSizeUnits);
         pnUp22.add(cbxSizeUnit);
 
         vPattern.add(new ComboBoxItem("0", "Fill 0"));
@@ -132,7 +131,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         vPattern.add(new ComboBoxItem("11", "Rotate 0~9"));
         vPattern.add(new ComboBoxItem("98", "Random Bytes"));
         vPattern.add(new ComboBoxItem("99", "Random 0~9"));
-        cbxPattern = new HComboBox(vPattern);
+        cbxPattern = new DFMComboBox(vPattern);
         pnUp22.add(cbxPattern);
 
         progBar = new JProgressBar();
@@ -207,7 +206,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         frame.setVisible(true);
 
         String strSize = argMap.get("--size");
-        if(DataUtil.isNotEmpty(strSize)) {
+        if(DFMUtil.isNotEmpty(strSize)) {
             strSize = strSize.replace(",", "").replace(" ", "").trim();
             String strSizeUnit = "";
             if(strSize.endsWith("K") || strSize.endsWith("M") || strSize.endsWith("G") || strSize.endsWith("T")) {
@@ -217,7 +216,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
 
             spSize.setValue(new Integer(strSize));
             
-            if(DataUtil.isEmpty(strSizeUnit)) {
+            if(DFMUtil.isEmpty(strSizeUnit)) {
                 cbxSizeUnit.setSelectedIndex(0);
             } else {
                 for(ComboBoxItem item : vSizeUnits) {
@@ -230,7 +229,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         }
 
         String strDest = argMap.get("--dest");
-        if(DataUtil.isNotEmpty(strDest)) {
+        if(DFMUtil.isNotEmpty(strDest)) {
             tfDest.setText(strDest.trim());
         }
     }
@@ -260,7 +259,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         try {
             // 입력값 및 선택값 꺼내기, 유효성 검사
             String strSize = String.valueOf(spSize.getValue());
-            if(DataUtil.isEmpty(strSize)) {
+            if(DFMUtil.isEmpty(strSize)) {
                 throw new RuntimeException("Please input the file sizes !");
             }
 
@@ -274,7 +273,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             String strPattern = itemPattern.getKey();
 
             String strDest = tfDest.getText().trim();
-            if(DataUtil.isEmpty(strDest)) throw new RuntimeException("Please select or input where to save !");
+            if(DFMUtil.isEmpty(strDest)) throw new RuntimeException("Please select or input where to save !");
 
             // 진행바 상태 변경
             progBar.setIndeterminate(false);
@@ -298,7 +297,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             strSize = null;
 
             // 작업 호출
-            process(dest, totals, Integer.parseInt(strPattern), buffSize, 20L, new OnWriteCycle() {
+            create(dest, totals, Integer.parseInt(strPattern), buffSize, 20L, new OnWriteCycle() {
                 @Override
                 public void onCycle(File f, int cycle, BigInteger written, BigInteger totals) {
                     onOneCycleProcessing(f, cycle, written, totals);
@@ -310,7 +309,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             strErrorMessage = "(" + ex.getClass().getSimpleName() + ") " + ex.getMessage();
         }
 
-        if(DataUtil.isNotEmpty(strErrorMessage)) {
+        if(DFMUtil.isNotEmpty(strErrorMessage)) {
             log(strErrorMessage);
             alert(strErrorMessage);
             strErrorMessage = "";
@@ -338,5 +337,16 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             progBar.setValue(written.divide(progressDivides).intValue());
             tfStat.setText("Progressing ... " + written + " / " + totals);
         }
+    }
+    
+    /** 창 크기 반환 */
+    public static Dimension getScreenSize() {
+        return Toolkit.getDefaultToolkit().getScreenSize();
+    }
+    
+    /** 창을 모니터 가운데에 위치시킵니다. */
+    public static void centerWindow(Window window) {
+        Dimension scrSize = getScreenSize();
+        window.setLocation((int)( scrSize.getWidth() / 2 - window.getWidth() / 2 ), (int)( scrSize.getHeight() / 2 - window.getHeight() / 2 ));
     }
 }
