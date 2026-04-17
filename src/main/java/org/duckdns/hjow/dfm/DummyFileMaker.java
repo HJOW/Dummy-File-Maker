@@ -1,4 +1,19 @@
 package org.duckdns.hjow.dfm;
+/*
+Copyright 2026 HJOW
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ */
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -40,7 +55,9 @@ public class DummyFileMaker {
     /** true 시 작업이 중단 (사이클 루프가 중단됨) */
     protected volatile boolean flagStop = false;
     /** 문자 관련 패턴을 선택한 경우 이 캐릭터셋을 따름 */
-    protected String defaultCharset = "ISO-8859-1";
+    protected String charset = "ISO-8859-1";
+    /** 동적 버퍼 사용여부 */
+    protected boolean useDynamicBuffer = false;
 
     /** 기본 생성자, 프로그램 실행을 준비 */
     public DummyFileMaker() { }
@@ -160,7 +177,7 @@ public class DummyFileMaker {
      * @param threadGapTimeMillis : 사이클 간 Sleep 주기, 짧을 수록 속도가 빠르나 시스템이 불안정해질 수 있음. 밀리초 단위. 최소 20 이상을 넣어야 함.
      */
     public void create(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
-        create(dest, size, pattern, bufferSize, threadGapTimeMillis, false, null);
+        create(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
     }
 
     /** 
@@ -172,7 +189,7 @@ public class DummyFileMaker {
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
      */
-    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final boolean useDynamicBuffer, final OnWriteCycle oneCycleEventHandler) throws Exception {
+    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
         flagPause = false;
         flagStop = false;
 
@@ -198,8 +215,8 @@ public class DummyFileMaker {
             if(useDynamicBuffer) out2 = new BufferedOutputStream(out1);
             else                 out2 = out1;
 
-            byte zeros  = new String("0").getBytes(defaultCharset)[0];
-            byte spaces = new String(" ").getBytes(defaultCharset)[0];
+            byte zeros  = new String("0").getBytes(charset)[0];
+            byte spaces = new String(" ").getBytes(charset)[0];
 
             while(lefts.compareTo(BigInteger.ZERO) > 0) {
                 if(flagStop) { log(DFMStringTableManager.t("Stop requested.")); break; }
@@ -216,7 +233,7 @@ public class DummyFileMaker {
                                 if(rotate >= (int) Byte.MAX_VALUE) rotate = 0;
                                 break;
                             case PATTERN_ROTATE_NUMBER:
-                                buffer[idx] = String.valueOf(rotate).getBytes(defaultCharset)[0];
+                                buffer[idx] = String.valueOf(rotate).getBytes(charset)[0];
                                 rotate++;
                                 if(rotate >= 10) rotate = 0;
                                 break;
@@ -224,7 +241,7 @@ public class DummyFileMaker {
                                 buffer[idx] = (byte) (Math.random() * ((int) Byte.MAX_VALUE));
                                 break;
                             case PATTERN_RANDOM_NUMBER:
-                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes(defaultCharset)[0];
+                                buffer[idx] = String.valueOf(Math.random() * 9.9).getBytes(charset)[0];
                                 break;
                             case PATTERN_FILL_ZERO_NUMBER:
                                 buffer[idx] = zeros;
@@ -277,5 +294,21 @@ public class DummyFileMaker {
         }
 
         if(exc != null) throw new RuntimeException("(" + exc.getClass().getSimpleName() + ") " + exc.getMessage(), exc);
+    }
+
+    public String getCharset() {
+        return charset;
+    }
+
+    public void setCharset(String charset) {
+        this.charset = charset;
+    }
+
+    public boolean isUseDynamicBuffer() {
+        return useDynamicBuffer;
+    }
+
+    public void setUseDynamicBuffer(boolean useDynamicBuffer) {
+        this.useDynamicBuffer = useDynamicBuffer;
     }
 }

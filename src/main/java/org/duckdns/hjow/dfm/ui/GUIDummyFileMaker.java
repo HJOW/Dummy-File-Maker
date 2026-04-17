@@ -1,4 +1,19 @@
 package org.duckdns.hjow.dfm.ui;
+/*
+Copyright 2026 HJOW
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ */
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -7,6 +22,7 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
@@ -28,6 +44,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -41,13 +58,15 @@ import org.duckdns.hjow.dfm.stringtable.DFMStringTableManager;
 public class GUIDummyFileMaker extends DummyFileMaker {
     private JFrame frame;
     private JFileChooser chooser;
+    private DFMOptionDialog dialogOption;
 
     protected JProgressBar progBar;
     protected JTextField tfDest;
     protected JSpinner spSize;
     protected DFMComboBox cbxSizeUnit, cbxPattern;
     protected JButton btnRun, btnPause, btnStop;
-    protected JMenuItem menuRun;
+    protected JMenu menuRun;
+    protected JMenuItem menuItemRun;
 
     protected JTextArea taArea;
     protected JTextField tfStat;
@@ -57,6 +76,8 @@ public class GUIDummyFileMaker extends DummyFileMaker {
     
     protected Vector<ComboBoxItem> vSizeUnits = new Vector<ComboBoxItem>();
     protected Vector<ComboBoxItem> vPattern   = new Vector<ComboBoxItem>();
+    
+    private int bufferSize = 8192;
 
     /** 기본 생성자, UI 초기화를 이 때 진행 */
     public GUIDummyFileMaker() {
@@ -82,6 +103,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
 
         centerWindow(frame);
         
+        dialogOption = new DFMOptionDialog(this);
         chooser = new JFileChooser();
 
         JPanel pnMain = new JPanel();
@@ -126,7 +148,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             }
         });
 
-        lb = new JLabel(DFMStringTableManager.t("Size"));
+        lb = new JLabel(DFMStringTableManager.t("File size"));
         SpinnerNumberModel md = new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1);
         spSize = new JSpinner(md);
         pnUp22.add(lb);
@@ -221,14 +243,28 @@ public class GUIDummyFileMaker extends DummyFileMaker {
                 processExit();
             }
         });
+        menuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F4, ActionEvent.ALT_MASK));
         menu.add(menuItem);
         
-        menu = new JMenu(DFMStringTableManager.t("Run"));
-        menuBar.add(menu);
+        menuRun = new JMenu(DFMStringTableManager.t("Run"));
+        menuBar.add(menuRun);
         
-        menuRun = new JMenuItem(DFMStringTableManager.t("Start"));
-        menuRun.addActionListener(actionRun);
-        menu.add(menuRun);
+        menuItem = new JMenuItem(DFMStringTableManager.t("Option"));
+        menuItem.addActionListener(new ActionListener() {   
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                dialogOption.open();
+            }
+        });
+        menuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
+        menuRun.add(menuItem);
+        
+        menuRun.addSeparator();
+        
+        menuItemRun = new JMenuItem(DFMStringTableManager.t("Start"));
+        menuItemRun.addActionListener(actionRun);
+        menuItemRun.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, ActionEvent.CTRL_MASK));
+        menuRun.add(menuItemRun);
     }
 
     /** 확인 창으로 메시지 띄우기 */
@@ -280,10 +316,12 @@ public class GUIDummyFileMaker extends DummyFileMaker {
     /** 작업 시작 */
     protected void start() {
         btnRun.setEnabled(false);
+        menuRun.setEnabled(false);
         btnStop.setVisible(true);
         btnPause.setVisible(true);
         btnPause.setText("||");
         progBar.setIndeterminate(true);
+        if(dialogOption != null) dialogOption.close();
         taArea.setText("");
         tfStat.setText(DFMStringTableManager.t("Job started !"));
         log(DFMStringTableManager.t("Job started !"));
@@ -334,16 +372,15 @@ public class GUIDummyFileMaker extends DummyFileMaker {
             }
 
             File dest = new File(strDest);
-            int buffSize = 8192;
 
             log("   Size : " + strSize);
             log("   Dest : " + dest.getAbsolutePath());
             log("   Pattern Code : " + strPattern);
-            log("   Buffer Size : " + buffSize);
+            log("   Buffer Size : " + bufferSize);
             strSize = null;
             
             // 작업 호출
-            create(dest, totals, Integer.parseInt(strPattern), buffSize, 20L, false, new OnWriteCycle() {
+            create(dest, totals, Integer.parseInt(strPattern), bufferSize, 20L, new OnWriteCycle() {
                 @Override
                 public void onCycle(File f, int cycle, BigInteger written, BigInteger totals) {
                     onOneCycleProcessing(f, cycle, written, totals);
@@ -372,6 +409,7 @@ public class GUIDummyFileMaker extends DummyFileMaker {
                 btnStop.setVisible(false);
                 btnPause.setVisible(false);
                 btnRun.setEnabled(true);
+                menuRun.setEnabled(true);
                 frame.setTitle(DFMStringTableManager.t("Dummy File Maker (DFM)"));
             }
         });
@@ -393,10 +431,24 @@ public class GUIDummyFileMaker extends DummyFileMaker {
         if(btnRun   != null) btnRun.setVisible(false);
         if(progBar  != null) progBar.setIndeterminate(true);
         try { Thread.sleep(100L); } catch(InterruptedException ex) {}
+        if(dialogOption != null) dialogOption.dispose();
         frame.setVisible(false);
         System.exit(0);
     }
     
+    /** GUI Frame 객체 반환 */
+    public JFrame getFrame() {
+        return frame;
+    }
+    
+    public int getBufferSize() {
+        return bufferSize;
+    }
+
+    public void setBufferSize(int bufferSize) {
+        this.bufferSize = bufferSize;
+    }
+
     /** 창 크기 반환 */
     public static Dimension getScreenSize() {
         return Toolkit.getDefaultToolkit().getScreenSize();
