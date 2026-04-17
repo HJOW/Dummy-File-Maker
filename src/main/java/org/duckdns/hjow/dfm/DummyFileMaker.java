@@ -1,10 +1,15 @@
 package org.duckdns.hjow.dfm;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.duckdns.hjow.dfm.stringtable.DFMStringTableManager;
+import org.duckdns.hjow.dfm.ui.GUIDummyFileMaker;
 
 /** 더미 파일 생성기 메인 클래스 */
 public class DummyFileMaker {
@@ -155,7 +160,7 @@ public class DummyFileMaker {
      * @param threadGapTimeMillis : 사이클 간 Sleep 주기, 짧을 수록 속도가 빠르나 시스템이 불안정해질 수 있음. 밀리초 단위. 최소 20 이상을 넣어야 함.
      */
     public void create(File dest, BigInteger size, int pattern, int bufferSize, long threadGapTimeMillis) throws Exception {
-        create(dest, size, pattern, bufferSize, threadGapTimeMillis, null);
+        create(dest, size, pattern, bufferSize, threadGapTimeMillis, false, null);
     }
 
     /** 
@@ -167,11 +172,12 @@ public class DummyFileMaker {
      * @param bufferSize : 버퍼 크기 (한 사이클에 출력하는 바이트 크기, 클 수록 속도가 빨라지며, 기본값은 8192)
      * @param oneCycleEventHandler : 매 사이클마다 처리할 이벤트 (null 입력 가능)
      */
-    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final OnWriteCycle oneCycleEventHandler) throws Exception {
+    public void create(final File dest, final BigInteger size, final int pattern, final int bufferSize, final long threadGapTimeMillis, final boolean useDynamicBuffer, final OnWriteCycle oneCycleEventHandler) throws Exception {
         flagPause = false;
         flagStop = false;
 
-        FileOutputStream out1 = null;
+        FileOutputStream  out1 = null;
+        OutputStream      out2 = null;
         byte[] buffer = new byte[bufferSize];
         int idx;
         Throwable exc = null;
@@ -188,6 +194,9 @@ public class DummyFileMaker {
             cycle = 0;
             rotate = 0;
             out1 = new FileOutputStream(dest);
+            
+            if(useDynamicBuffer) out2 = new BufferedOutputStream(out1);
+            else                 out2 = out1;
 
             byte zeros  = new String("0").getBytes(defaultCharset)[0];
             byte spaces = new String(" ").getBytes(defaultCharset)[0];
@@ -235,7 +244,7 @@ public class DummyFileMaker {
                     }
 
                     // 쓰기
-                    out1.write(buffer, 0, nowWriteSize);
+                    out2.write(buffer, 0, nowWriteSize);
 
                     // 쓴 용량 갱신
                     written = written.add(new BigInteger(nowWriteSize + ""));
@@ -250,12 +259,21 @@ public class DummyFileMaker {
                 if(cycle % 1000 == 0) Thread.sleep(threadGapTimeMillis);
                 if(cycle >= Integer.MAX_VALUE - 1) cycle = 0;
             }
-            out1.close();
+            
+            if(out2 != null) {
+                out2.close();
+                if(out2 == out1) out1 = null;
+            }
+            out2 = null;
+            
+            if(out1 != null) out1.close();
             out1 = null;
         } catch(Throwable ex) {
             exc = ex;
         } finally {
-            DFMUtil.closeAll(out1);
+            DFMUtil.closeAll(out2, out1);
+            out2 = null;
+            out1 = null;
         }
 
         if(exc != null) throw new RuntimeException("(" + exc.getClass().getSimpleName() + ") " + exc.getMessage(), exc);

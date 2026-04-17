@@ -1,4 +1,4 @@
-package org.duckdns.hjow.dfm;
+package org.duckdns.hjow.dfm.ui;
 
 /** GUI 환경에서 콤보박스 사용을 위함 */
 public class ComboBoxItem {
